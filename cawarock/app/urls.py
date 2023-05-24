@@ -5,6 +5,7 @@ from . import views
 from .views import CultureBankListCreateAPIView
 from .views import weather_apiListCreateAPIView
 from .views import fineDustListCreateAPIView
+from .views import Market_DBListCreateAPIView
 
 urlpatterns = [
     path('', views.index),
@@ -19,5 +20,8 @@ urlpatterns = [
     path('get_weather_api/', views.get_weather_api, name='get_weather_api'),
     path('get_fineDust/', views.get_fineDust, name='get_fineDust'),
     path('search/', views.store_search, name='search'),
+    path('Market_DB/', Market_DBListCreateAPIView.as_view(), name='Market_DB_list_create'),
+    path('get_Market_DB/', views.get_Market_DB, name='get_Market_DB'),
+    path('yeouijus/', views.my_view, name='yeouijus'),
 ]
 

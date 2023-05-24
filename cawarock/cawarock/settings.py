@@ -131,7 +131,8 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-secret_file = os.path.join('C:/Users/PC/Desktop/RoundStar_^^/cawarock/cawarock', "secrets.json")
+secret_file = os.path.join('/home/ubuntu/projects/RoundStar/cawarock/cawarock', "secrets.json")
+
 secrets = None
 with open(secret_file) as f:
     secrets = json.loads(f.read())

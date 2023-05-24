@@ -41,6 +41,11 @@ from django.urls import reverse
 import jwt
 from django.shortcuts import render
 from django.db.models import Q 
+from .serializers import Market_DBSerializer
+from .models import Market_DB
+from .models import Yeouijus
+import random
+
 def index(request):
     return HttpResponse("알렉")
 
@@ -249,7 +254,7 @@ def kakaoGetLogin(request):
     return res
 
 
-
+"""
 @api_view(['GET'])
 @permission_classes([AllowAny, ])
 def getUserInfo(reqeust):
@@ -293,7 +298,7 @@ def getUserInfo(reqeust):
         encoded_jwt = jwt.encode({'id' : user_info.id}, 'SECRET_KEY', algorithm='HS256') #JWT 토큰 발행
         #return HttpResponse(f'id:{user_info.id}, token:{encoded_jwt}, exist:false')
         return HttpResponse(f'id:{user_info.id}, token:{encoded_jwt}, exist:false')
-
+"""
 def store_search(request):
     query = request.GET.get('query')
     if query:
@@ -303,7 +308,102 @@ def store_search(request):
 
     data = {"cultures": list(cultures.values())}
     return JsonResponse(data)
+
+class Market_DBListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Market_DB.objects.all()
+    serializer_class = Market_DBSerializer
+
+def get_Market_DB(request):
+    if request.method == 'GET':
+        Market_DB = Market_DB.objects.all()
+        serializer = Market_DBSerializer(Market_DB, many=True)
+        json_data = json.dumps(serializer.data, ensure_ascii=False)
+        return JsonResponse(json_data, safe=False, charset='utf-8')
     
+def my_view(request):
+    if request.method == "GET":
+        data = list(Yeouijus.objects.all().values())
+        random_data = random.choice(data)
+        json_data = json.dumps(random_data, ensure_ascii=False)
+        return JsonResponse(json_data, safe=False, charset="utf-8")
+
+def print_data():
+    # HTTP GET 요청 보내기
+    response = requests.get('http://localhost:8000/hongbo/yeouijus/')
+    response.encoding = 'utf-8'  # 인코딩 지정
+    data = response.json()
+    print(data)
+
+sched = BackgroundScheduler()
+
+def random_repeat():
+    sched.add_job(print_data, "interval", seconds=3600, id="print_data") #5초에 한번 출력
+    return sched
+
+sched=random_repeat()
+sched.start()
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny, ])
+def getUserInfo(reqeust):
+    CODE = reqeust.query_params['code']
+    url = "https://kauth.kakao.com/oauth/token"
+    res = {
+            'grant_type': 'authorization_code',
+            'client_id': SOCIAL_OUTH_CONFIG['KAKAO_REST_API_KEY'],
+            'redirect_url': SOCIAL_OUTH_CONFIG['KAKAO_REDIRECT_URI'],
+            'client_secret': SOCIAL_OUTH_CONFIG['KAKAO_SECRET_KEY'],
+            'code': CODE
+        }
+    headers = {
+        'Content-type': 'application/x-www-form-urlencoded;charset=utf-8'
+    }
+    response = requests.post(url, data=res, headers=headers)
+    tokenJson = response.json()
+    userUrl = "https://kapi.kakao.com/v2/user/me" # 유저 정보 조회하는 uri
+    auth = "Bearer "+tokenJson['access_token'] ## 'Bearer '여기에서 띄어쓰기 필수!!
+    HEADER = {
+        "Authorization": auth,
+        "Content-type": "application/x-www-form-urlencoded;charset=utf-8"
+    }
+    #res = requests.get(userUrl, headers=HEADER)
+    #return JsonResponse({"user_info":res.json()})
+    account = Account.objects.last()
+    
+
+    kakao_response=requests.post(userUrl, headers=HEADER)
+    kakao_response = json.loads(kakao_response.text)
+
+    if  Account.objects.filter(social_login_id=kakao_response['id']).exists():  # 지금 접속한 카카오 아이디가 데이터베이스에 존재하는지 확인
+            user_info = Account.objects.get(social_login_id=kakao_response['id'])  # 존재하는 카카오 아이디를 가진 유저 객체를 가져옴
+            encoded_jwt = jwt.encode({'id': user_info.id}, 'SECRET_KEY', algorithm='HS256')  # jwt토큰 발행
+            class_object = Account.objects.get(gender=kakao_response['kakao_account']['gender'], 
+                                               age=kakao_response['kakao_account']['age_range'],
+                                               social_login_id= kakao_response['id'],
+                                               )
+            point = Account.objects.get(point = account.point)
+            profile_img = Account.objects.get(profile_img = account.profile_img)
+            step = Account.objects.get(step = account.step)
+            nickname = Account.objects.get(nickname = account.nickname)
+            reivew = Account.objects.get(reivew = account.reivew)
+            picklist = Account.objects.get(picklist = account.picklist)
+            yeouijus = Account.objects.get(yeouijus = account.yeouijus)
+
+
+            return HttpResponse(f'id:{user_info.id}, step: {step.step}, nickname: {nickname.nickname}, review : {reivew.reivew},picklist : {picklist.picklist}, yeouijus : {yeouijus.yeouijus} ,point : {point.point} profile_img: {profile_img.profile_img} class_object: {class_object.age}{class_object.gender}{class_object.social_login_id}, token:{encoded_jwt},  exist:true')
+
+    # 저장되어 있지 않다면 회원가입
+    else:
+        Account(
+            social_login_id = kakao_response['id'],
+            email = kakao_response['kakao_account'].get('email', None), # 이메일 선택동의여서 없을 수도 잇음
+            gender = kakao_response['kakao_account']['gender'],
+            age = kakao_response['kakao_account'].get('age_range',None),
+        ).save()
+        user_info = Account.objects.get(social_login_id=kakao_response['id'])
+        encoded_jwt = jwt.encode({'id' : user_info.id}, 'SECRET_KEY', algorithm='HS256') #JWT 토큰 발행
+        return HttpResponse(f'id:{user_info.id}, token:{encoded_jwt}, exist:false')
 
 
 

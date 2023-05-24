@@ -4,7 +4,12 @@ from django.core.validators import RegexValidator
 from .models import CultureBank
 from .models import WeatherDB
 from .models import fineDustDB
+from .models import Market_DB
 
+class Market_DBSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Market_DB
+        fields = '__all__'
 class MyUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,

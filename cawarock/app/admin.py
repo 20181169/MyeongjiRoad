@@ -5,9 +5,10 @@ from rest_framework_api_key.models import APIKey
 from django.contrib import admin
 from .models import MyUser
 from django.contrib.auth.admin import UserAdmin
+from .models import Account
 
 admin.site.unregister(APIKey)
-
+admin.site.register(Account)
 
 
 class MyUserAdmin(UserAdmin):

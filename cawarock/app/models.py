@@ -106,14 +106,58 @@ class CultureBank(models.Model):
 
     def __str__(self):
         return self.name
-
+"""
 class Account(models.Model):
     social_login_id = models.CharField(max_length=1000,null=True)
     email = models.CharField(max_length=1000,null=True)
 
     def __str__(self):
         return self.email 
+"""
+
+class Account(models.Model):
+    social_login_id = models.CharField(max_length=1000,null=True)
+    email = models.CharField(max_length=1000,null=True)
+    gender = models.CharField(max_length=20, null=True)
+    age = models.CharField(max_length=100 , null=True)
+    nickname = models.CharField(max_length=1000,null=True)
+    reivew = models.CharField(max_length=1000,null=True)
+    profile_img = models.IntegerField(null=True)
+    step = models.IntegerField(null=True)
+    point = models.IntegerField(null=True)
+    picklist = models.CharField(max_length=1000,null=True)
+    yeouijus = models.CharField(max_length=20,null=True)
+
+    def __str__(self):
+        return self.email
+
+class Market_DB(models.Model):
+
+    lot_number = models.CharField(max_length=70, null=True) #지번
+    market_name = models.CharField(max_length=100, null=True) #상호
+    cawarock = models.CharField(max_length=100, null=True) #와락 URL
+    category = models.IntegerField(null=True) # 카테고리
+    floor = models.CharField(max_length=20, null=True) #층수
+    open_check = models.CharField(max_length=50, null=True) # 영업여부 (1 => 영업중 // 2 => 영업안함)
+    img = models.ImageField(upload_to='images/', null=True) # 간판이미지
+    keyword_common = models.CharField(max_length=1000, null=True) # 공통키워드
+    keyword_detail = models.CharField(max_length=1000, null=True) # 공통키워드
+    address = models.CharField(max_length=300, null=True) # 주소
+    phone = models.CharField(max_length=50, null=True) # 전화번호
+    open_hours = models.CharField(max_length=1000, null=True) # 영업시간
+    item = models.CharField(max_length=1000, null=True) #메인아이템
+    explain = models.CharField(max_length=2000, null=True) # 설명
+    section = models.CharField(max_length=70, null=True) # 섹션 넘버
+    review = models.JSONField(max_length=1000, null=True) # 리뷰
+    grade = models.JSONField(max_length=1000, null=True) # 평점
     
 
+    def __str__(self):
+        return self.market_name 
     
+class Yeouijus(models.Model):
+    yeouijus = models.CharField(max_length=20,null=True)
+
+    def __str__(self):
+        return self.yeouijus 
 
