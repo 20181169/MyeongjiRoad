@@ -45,6 +45,9 @@ from .serializers import Market_DBSerializer
 from .models import Market_DB
 from .models import Yeouijus
 import random
+from .serializers import accountSerializer
+
+
 
 def index(request):
     return HttpResponse("알렉")
@@ -60,6 +63,23 @@ def get_culture_banks(request):
         serializer = CultureBankSerializer(culture_banks, many=True)
         json_data = json.dumps(serializer.data, ensure_ascii=False)
         return JsonResponse(json_data, safe=False, charset='utf-8')
+
+
+class saveUserInfoCreateAPIView(generics.ListCreateAPIView):
+    queryset=Account.objects.all()
+    serializer_class = accountSerializer
+
+@api_view(['POST'])
+def saveUserInfo(request):
+    serializer = accountSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        response_data = {
+            'message': 'Data saved successfully',
+        }
+        return Response(response_data)
+    else:
+        return Response(serializer.errors, status=400)
 
 
 
@@ -315,8 +335,8 @@ class Market_DBListCreateAPIView(generics.ListCreateAPIView):
 
 def get_Market_DB(request):
     if request.method == 'GET':
-        Market_DB = Market_DB.objects.all()
-        serializer = Market_DBSerializer(Market_DB, many=True)
+        market_DB = Market_DB.objects.all()
+        serializer = Market_DBSerializer(market_DB, many=True)
         json_data = json.dumps(serializer.data, ensure_ascii=False)
         return JsonResponse(json_data, safe=False, charset='utf-8')
     
@@ -342,6 +362,7 @@ def random_repeat():
 
 sched=random_repeat()
 sched.start()
+
 
 
 @api_view(['GET'])
@@ -374,36 +395,156 @@ def getUserInfo(reqeust):
 
     kakao_response=requests.post(userUrl, headers=HEADER)
     kakao_response = json.loads(kakao_response.text)
-
-    if  Account.objects.filter(social_login_id=kakao_response['id']).exists():  # 지금 접속한 카카오 아이디가 데이터베이스에 존재하는지 확인
-            user_info = Account.objects.get(social_login_id=kakao_response['id'])  # 존재하는 카카오 아이디를 가진 유저 객체를 가져옴
-            encoded_jwt = jwt.encode({'id': user_info.id}, 'SECRET_KEY', algorithm='HS256')  # jwt토큰 발행
-            class_object = Account.objects.get(gender=kakao_response['kakao_account']['gender'], 
-                                               age=kakao_response['kakao_account']['age_range'],
-                                               social_login_id= kakao_response['id'],
-                                               )
-            point = Account.objects.get(point = account.point)
-            profile_img = Account.objects.get(profile_img = account.profile_img)
-            step = Account.objects.get(step = account.step)
-            nickname = Account.objects.get(nickname = account.nickname)
-            reivew = Account.objects.get(reivew = account.reivew)
-            picklist = Account.objects.get(picklist = account.picklist)
-            yeouijus = Account.objects.get(yeouijus = account.yeouijus)
+    print(kakao_response)
+    # print(kakao_response['kakao_account']['gender'])
+    # print(kakao_response['kakao_account']['age_range'])
+    # print(account.profile_img)
+    # print(account.point)
+    # print(account.step)
+    # print(account.nickname)
+    # print(account.review)
+    # print(account.picklist)
 
 
-            return HttpResponse(f'id:{user_info.id}, step: {step.step}, nickname: {nickname.nickname}, review : {reivew.reivew},picklist : {picklist.picklist}, yeouijus : {yeouijus.yeouijus} ,point : {point.point} profile_img: {profile_img.profile_img} class_object: {class_object.age}{class_object.gender}{class_object.social_login_id}, token:{encoded_jwt},  exist:true')
+    if  Account.objects.filter(social_login_id=kakao_response['id']).exists():
+        user_info = Account.objects.get(social_login_id=kakao_response['id'])
+        encoded_jwt = jwt.encode({'id': user_info.id}, 'SECRET_KEY', algorithm='HS256')
+        point = user_info.point
+        profile_img = user_info.profile_img
+        step = user_info.step
+        nickname = user_info.nickname
+        review = user_info.review
+        picklist = user_info.picklist
+        class_object = Account.objects.get(gender=kakao_response['kakao_account']['gender'], age=kakao_response['kakao_account']['age_range'], social_login_id=kakao_response['id'])
 
+            # yeouijus = Account.objects.get(yeouijus = account.yeouijus)
+       
+
+
+        response = HttpResponse("", status=302)
+        response['Location'] = "toonjido://mylink?"+encoded_jwt
+
+        return response
     # 저장되어 있지 않다면 회원가입
     else:
-        Account(
-            social_login_id = kakao_response['id'],
-            email = kakao_response['kakao_account'].get('email', None), # 이메일 선택동의여서 없을 수도 잇음
-            gender = kakao_response['kakao_account']['gender'],
-            age = kakao_response['kakao_account'].get('age_range',None),
-        ).save()
-        user_info = Account.objects.get(social_login_id=kakao_response['id'])
-        encoded_jwt = jwt.encode({'id' : user_info.id}, 'SECRET_KEY', algorithm='HS256') #JWT 토큰 발행
+        account = Account.objects.create(
+            social_login_id=kakao_response['id'],
+            email=kakao_response['kakao_account'].get('email', None),
+            gender=kakao_response['kakao_account'].get('gender',None),
+            age=kakao_response['kakao_account'].get('age_range', None),
+        )
+        user_info = account
+        encoded_jwt = jwt.encode({'id': user_info.id}, 'SECRET_KEY', algorithm='HS256')
+
         return HttpResponse(f'id:{user_info.id}, token:{encoded_jwt}, exist:false')
 
+def store_search(request):              # 가게 상호명 & 지번 & 섹션별 가게 검색( 섹션은 글자그대로 정확히 입력 ex) Section1 )
+    query = request.GET.get('query')
+    
+    if query:
+        cultures = Market_DB.objects.filter(Q(market_name__icontains=query) | Q(lot_number__iexact=query) | Q(section__iexact=query) | Q(keyword_common__icontains=query) | Q(keyword_detail__icontains=query))
+        serializer = Market_DBSerializer(cultures, many=True)
+    else:
+        cultures = Market_DB.objects.all()
+        serializer = Market_DBSerializer(cultures, many=True)
+
+    json_data = json.dumps(serializer.data, ensure_ascii=False)
+
+    data = {
+        "cultures": serializer.data  # Use 'serializer.data' instead of 'list(cultures.values())'
+    }
+    return JsonResponse(data, safe=False)
 
 
+def category_search(request):                   # 카테고리별 섹션별 가게 수 
+        query = request.GET.get('query')
+        if query:
+            cultures = Market_DB.objects.filter(Q(category__iexact=query))
+            serializer = Market_DBSerializer(cultures, many=True)
+            section1_count = cultures.filter(section='Section1').count()
+            section2_count = cultures.filter(section='Section2').count()
+            section3_count = cultures.filter(section='Section3').count()
+            section4_count = cultures.filter(section='Section4').count()
+            section5_count = cultures.filter(section='Section5').count()
+            section6_count = cultures.filter(section='Section6').count()
+            section7_count = cultures.filter(section='Section7').count()
+            section8_count = cultures.filter(section='Section8').count()
+            section9_count = cultures.filter(section='Section9').count()
+            section10_count = cultures.filter(section='Section10').count()
+            section11_count = cultures.filter(section='Section11').count()
+            section12_count = cultures.filter(section='Section12').count()
+            section13_count = cultures.filter(section='Section13').count()
+            section14_count = cultures.filter(section='Section14').count()
+            section15_count = cultures.filter(section='Section15').count()
+
+        else:
+            cultures = Market_DB.objects.all()
+            serializer = Market_DBSerializer(cultures, many=True)
+
+            section1_count = cultures.filter(section='Section1').count()
+            section2_count = cultures.filter(section='Section2').count()
+            section3_count = cultures.filter(section='Section3').count()
+            section4_count = cultures.filter(section='Section4').count()
+            section5_count = cultures.filter(section='Section5').count()
+            section6_count = cultures.filter(section='Section6').count()
+            section7_count = cultures.filter(section='Section7').count()
+            section8_count = cultures.filter(section='Section8').count()
+            section9_count = cultures.filter(section='Section9').count()
+            section10_count = cultures.filter(section='Section10').count()
+            section11_count = cultures.filter(section='Section11').count()
+            section12_count = cultures.filter(section='Section12').count()
+            section13_count = cultures.filter(section='Section13').count()
+            section14_count = cultures.filter(section='Section14').count()
+            section15_count = cultures.filter(section='Section15').count()
+
+        section_counts = {}
+        for i in range(1, 16):
+            section = f'Section{i}'
+            section_counts[section] = cultures.filter(section=section).count()
+        data = {
+            "cultures": serializer.data,
+            "section1_count": section1_count,
+            "section2_count": section2_count,
+            "section3_count": section3_count,
+            "section4_count": section4_count,
+            "section5_count": section5_count,
+            "section6_count": section6_count,
+            "section7_count": section7_count,
+            "section8_count": section8_count,
+            "section9_count": section9_count,
+            "section10_count": section10_count,
+            "section11_count": section11_count,
+            "section12_count": section12_count,
+            "section13_count": section13_count,
+            "section14_count": section14_count,
+            "section15_count": section15_count,
+            
+            "count": len(cultures)  # 검색된 결과의 개수
+        }
+        return JsonResponse(data)
+
+
+
+from .serializers import Market_DBSerializer, ImagesSerializer, reviewSerializer
+from app.models import Images, review
+
+
+class ImagesListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Images.objects.all()
+    serializer_class = ImagesSerializer
+
+class reviewListCreateAPIView(generics.ListCreateAPIView):
+    queryset = review.objects.all()
+    serializer_class = reviewSerializer
+
+
+def get_Market_DB_List(request):
+    if request.method == 'GET':
+        cultures = Market_DB.objects.all()
+        serializer = Market_DBSerializer(cultures, many=True)
+        json_data = json.dumps(serializer.data, ensure_ascii=False)
+
+        data = {
+            "cultures": serializer.data  # Use 'serializer.data' instead of 'list(cultures.values())'
+        }
+        return JsonResponse(data, safe=False)

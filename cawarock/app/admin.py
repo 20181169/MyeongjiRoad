@@ -5,11 +5,45 @@ from rest_framework_api_key.models import APIKey
 from django.contrib import admin
 from .models import MyUser
 from django.contrib.auth.admin import UserAdmin
-from .models import Account
+from .models import Account, Market_DB
+
+
+from .models import Market_DB, Images, review, Account
+
+class ImagesInline(admin.TabularInline):
+    model = Images
+
+class reviewInline(admin.TabularInline):
+    model = review
+
+
+
+class MarketDBAdmin(admin.ModelAdmin):
+    inlines = [ImagesInline, reviewInline]
+    readonly_fields = ['display_images']
+
+    def display_images(self, obj):
+        images = obj.images.all()
+        if images:
+            return ', '.join([str(image) for image in images])
+        else:
+            return 'No images'
+
+    display_images.short_description = 'Images'
+
+class accountAdmin(admin.ModelAdmin):
+    inlines = [reviewInline]
+    
+
+admin.site.register(Market_DB, MarketDBAdmin)
+
+admin.site.register(Account, accountAdmin)
+
+admin.site.register(Images)
+
+admin.site.register(review)
 
 admin.site.unregister(APIKey)
-admin.site.register(Account)
-
 
 class MyUserAdmin(UserAdmin):
     model = MyUser

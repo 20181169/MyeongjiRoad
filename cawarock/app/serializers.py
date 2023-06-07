@@ -6,10 +6,50 @@ from .models import WeatherDB
 from .models import fineDustDB
 from .models import Market_DB
 
+from .models import Market_DB, Images, review, Account
+from django.db.models import Avg
+
+
+class ImagesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Images
+        fields = ('market_id','image')
+
+class reviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = review
+        fields = ("content", "grade", "market", "account")
+
+class accountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Account
+        fields = '__all__'
+
 class Market_DBSerializer(serializers.ModelSerializer):
+    images = serializers.SerializerMethodField()
+    reviews = serializers.SerializerMethodField()
+    average_grade = serializers.SerializerMethodField()
+
+    def get_images(self, Market_DB):
+        
+        images = Images.objects.filter(market=Market_DB.id)
+        return ImagesSerializer(images, many=True).data
+    
+    def get_reviews(self, Market_DB):
+        reviews = review.objects.filter(market=Market_DB.id)
+        return reviewSerializer(reviews, many=True).data
+    
+    def get_average_grade(self, Market_DB):
+        reviews = review.objects.filter(market=Market_DB.id)
+        average_grade = reviews.aggregate(Avg('grade'))['grade__avg']
+        return round(average_grade, 2) if average_grade else None
+
     class Meta:
         model = Market_DB
-        fields = '__all__'
+        fields = ('id', 'lot_number', 'market_name', 'cawarock', 'category', 'floor', 'open_check', 'keyword_common',
+                  'keyword_detail', 'address', 'phone', 'open_hours', 'item', 'explain', 'section', 'reviews',
+                  'average_grade', 'images') 
+
 class MyUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
