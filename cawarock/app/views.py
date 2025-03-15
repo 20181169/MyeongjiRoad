@@ -24,6 +24,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import time
 from .weather_api import check_weather
 from .fineDust_api import check_fineDust
+from .temperature_api import check_temperature
 from .models import WeatherDB, Account
 from .models import fineDustDB
 import requests
@@ -43,7 +44,7 @@ from django.shortcuts import render
 from django.db.models import Q 
 from .serializers import Market_DBSerializer
 from .models import Market_DB
-from .models import Yeouijus
+from .models import Yeouijus , UserProfile
 import random
 from .serializers import accountSerializer
 
@@ -251,7 +252,10 @@ def cron_fineDust():
     sched.add_job(fineDust_job, 'interval', seconds=1000, id='cron_fineDust')
     sched.start()
 
-
+def get_temperature(request):
+    if request.method == 'GET':
+        data = check_temperature()
+        return JsonResponse(data, safe=False, charset='utf-8')
 
 
 
@@ -405,7 +409,7 @@ def getUserInfo(reqeust):
     # print(account.review)
     # print(account.picklist)
 
-
+    social_login_id=kakao_response['id']
     if  Account.objects.filter(social_login_id=kakao_response['id']).exists():
         user_info = Account.objects.get(social_login_id=kakao_response['id'])
         encoded_jwt = jwt.encode({'id': user_info.id}, 'SECRET_KEY', algorithm='HS256')
@@ -415,29 +419,41 @@ def getUserInfo(reqeust):
         nickname = user_info.nickname
         review = user_info.review
         picklist = user_info.picklist
-        class_object = Account.objects.get(gender=kakao_response['kakao_account']['gender'], age=kakao_response['kakao_account']['age_range'], social_login_id=kakao_response['id'])
+        #class_object = Account.objects.get(gender=kakao_response['kakao_account']['gender'], age=kakao_response['kakao_account']['age_range'], social_login_id=kakao_response['id'])
 
             # yeouijus = Account.objects.get(yeouijus = account.yeouijus)
        
 
 
         response = HttpResponse("", status=302)
-        response['Location'] = "toonjido://mylink?"+encoded_jwt
-
+       
+        response['Location'] = "toonjido://mylink?"+encoded_jwt+str(social_login_id)
         return response
     # 저장되어 있지 않다면 회원가입
     else:
         account = Account.objects.create(
             social_login_id=kakao_response['id'],
-            email=kakao_response['kakao_account'].get('email', None),
-            gender=kakao_response['kakao_account'].get('gender',None),
-            age=kakao_response['kakao_account'].get('age_range', None),
+            email=kakao_response['kakao_account'].get('email', 'email disagree'),
+            gender=kakao_response['kakao_account'].get('gender', 'gender disagree'),
+            age=kakao_response['kakao_account'].get('age_range', 'age_range disagree'),
         )
         user_info = account
         encoded_jwt = jwt.encode({'id': user_info.id}, 'SECRET_KEY', algorithm='HS256')
 
-        return HttpResponse(f'id:{user_info.id}, token:{encoded_jwt}, exist:false')
 
+
+
+
+
+        response = HttpResponse("", status=302)
+
+        response['Location'] = "toonjido://mylink?"+encoded_jwt+str(social_login_id)
+        return response
+
+
+
+
+      
 def store_search(request):              # 가게 상호명 & 지번 & 섹션별 가게 검색( 섹션은 글자그대로 정확히 입력 ex) Section1 )
     query = request.GET.get('query')
     
@@ -548,3 +564,467 @@ def get_Market_DB_List(request):
             "cultures": serializer.data  # Use 'serializer.data' instead of 'list(cultures.values())'
         }
         return JsonResponse(data, safe=False)
+
+from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+
+@csrf_exempt
+def update_find_number(request):
+    if request.method == 'POST':
+        market_name = request.POST.get('market_name')
+        find_number = request.POST.get('find_number')
+
+        # market_name과 일치하는 객체 조회
+        market_obj = get_object_or_404(Market_DB, market_name=market_name)
+
+        # find_number 값 업데이트
+        market_obj.find_number = find_number
+        market_obj.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Find number updated successfully.'})
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
+
+"""
+def create_favorite(request):
+    account_id = request.POST.get('account')
+    market_id = request.POST.get('market_id')
+
+    # account_id와 market_id에 해당하는 Account와 Market_DB 객체 가져오기
+    account = get_object_or_404(Account, social_login_id =account_id)
+    market = get_object_or_404(Market_DB, id=market_id)
+    
+    # Favorite 객체 생성
+    favorite = Favorite(account_id=account.id, market_id=market, is_favorite=True, agerange = account, gender = account)
+    favorite.save()
+
+    # 응답 데이터 구성
+    response_data = {
+        'message': 'Favorite 객체가 성공적으로 생성되었습니다.',
+        'favorite_id': favorite.id
+    }
+
+    return JsonResponse(response_data)
+"""
+
+def create_favorite(request):
+    account_id = request.POST.get('account')
+    market_id = request.POST.get('market_id')
+
+    # account_id와 market_id에 해당하는 Account와 Market_DB 객체 가져오기
+    account = get_object_or_404(Account, social_login_id=account_id)
+    market = get_object_or_404(Market_DB, id=market_id)
+
+    # 중복된 Favorite 객체가 있는지 확인
+    if Favorite.objects.filter(account=account, market_id=market).exists():
+        response_data = {
+            'message': '이미 해당 정보로 저장된 Favorite 객체가 존재합니다.'
+        }
+        return JsonResponse(response_data, status=409)  # Conflict 상태 코드 반환
+
+    # Favorite 객체 생성
+    favorite = Favorite(account=account, market_id=market, is_favorite=True, agerange=account, gender=account)
+    favorite.save()
+
+    # 응답 데이터 구성
+    response_data = {
+        'message': 'Favorite 객체가 성공적으로 생성되었습니다.',
+        'favorite_id': favorite.id
+    }
+
+    return JsonResponse(response_data)
+
+def delete_favorite(request):
+    if request.method == 'POST':
+        account_id = request.POST.get('account')
+        market_id = request.POST.get('market_id')
+        print(account_id)
+        print(market_id)
+        account = Account.objects.get(social_login_id=account_id)
+        # 중복된 데이터 모두 삭제
+        favorite_rows = Favorite.objects.filter(account=account, market_id=market_id)
+        print(favorite_rows)
+        favorite_rows.delete()
+
+        response_data = {
+            'message': 'delete success'
+        }
+
+        return JsonResponse(response_data)
+    else:
+        response_data = {
+            'message': '잘못된 요청입니다.'
+        }
+
+        return JsonResponse(response_data, status=400)
+
+def get_favorite_market_ids(request):
+    social_login_id = request.GET.get('social_login_id')
+
+    # Account에서 social_login_id에 해당하는 행 가져오기
+    account = get_object_or_404(Account, social_login_id=social_login_id)
+
+    # 해당 Account에 대한 Favorite 행 가져오기
+    favorite_rows = Favorite.objects.filter(account=account)
+
+    # 가져온 Favorite 행에서 market_id 추출
+    market_ids = [row.market_id.id for row in favorite_rows]
+
+    # 응답 데이터 구성
+    response_data = {
+        'market_ids': market_ids
+    }
+
+    return JsonResponse(response_data, safe=False)
+
+def get_favorite_market_ids_age(request):
+    age_range = request.GET.get('age_range')
+
+    # Account에서 해당 나이대에 속하는 행 가져오기
+    accounts = Account.objects.filter(age=age_range)
+    print(accounts)
+    # Favorite 테이블에서 해당 Account들에 대응하는 행 가져오기
+    favorite_rows = Favorite.objects.filter(agerange__in=accounts)
+    print(favorite_rows)
+    # 가져온 Favorite 행에서 market_id 추출
+    market_ids = [row.market_id.id for row in favorite_rows]
+
+    # 응답 데이터 구성
+    response_data = {
+        'market_ids': market_ids
+    }
+
+    return JsonResponse(response_data)
+
+def get_favorite_market_ids_gender(request):
+    gender = request.GET.get('gender')
+    print(gender)
+    # Account에서 해당 나이대에 속하는 행 가져오기
+    accounts = Account.objects.filter(gender = gender)
+    print(accounts)
+    # Favorite 테이블에서 해당 Account들에 대응하는 행 가져오기
+    favorite_rows = Favorite.objects.filter(gender__in=accounts)
+    print(favorite_rows)
+    # 가져온 Favorite 행에서 market_id 추출
+    market_ids = [row.market_id.id for row in favorite_rows]
+
+    # 응답 데이터 구성
+    response_data = {
+        'market_ids': market_ids
+    }
+
+    return JsonResponse(response_data)
+
+def create_review(request):
+    account_id = request.POST.get('account')
+    market_id = request.POST.get('market_id')
+    content = request.POST.get('content')
+    grade = request.POST.get('grade')
+    # account_id와 market_id에 해당하는 Account와 Market_DB 객체 가져오기
+    account = get_object_or_404(Account, social_login_id =account_id)
+    market = get_object_or_404(Market_DB, id=market_id)
+    
+    # Favorite 객체 생성
+    favorite = review(account_id=account.id, market_id=market, content = content, grade = grade)
+    favorite.save()
+
+    # 응답 데이터 구성
+    response_data = {
+        'message': 'Favorite 객체가 성공적으로 생성되었습니다.',
+        'favorite_id': favorite.id
+    }
+
+    return JsonResponse(response_data)
+"""
+def get_review_market_ids(request):
+    social_login_id = request.GET.get('social_login_id')
+
+    # Account에서 social_login_id에 해당하는 행 가져오기
+    account = get_object_or_404(Account, social_login_id=social_login_id)
+
+    # 해당 Account에 대한 Favorite 행 가져오기
+    favorite_rows = review.objects.filter(account=account)
+
+    # 가져온 Favorite 행에서 market_id 추출
+    market_ids = [row.market_id.id for row in favorite_rows]
+
+    # 응답 데이터 구성
+    response_data = {
+        'market_ids': market_ids
+    }
+
+    return JsonResponse(response_data, safe=False)
+"""
+"""
+def get_review_market_ids(request):
+    social_login_id = request.GET.get('social_login_id')
+
+    # Account에서 social_login_id에 해당하는 행 가져오기
+    account = get_object_or_404(Account, social_login_id=social_login_id)
+
+    # 해당 Account에 대한 Favorite 행 가져오기
+    favorite_rows = review.objects.filter(account=account)
+
+    # 가져온 Favorite 행에서 market_id 추출
+    market_ids = [row.market_id.id for row in favorite_rows]
+
+    # 응답 데이터 구성
+    response_data = {
+        'market_ids': market_ids
+    }
+
+    return JsonResponse(response_data, safe=False)
+"""
+def get_review_market_ids(request):
+    if request.method == 'GET':
+        print('get')
+        social_login_id = request.GET.get('social_login_id')
+
+        # Account에서 social_login_id에 해당하는 행 가져오기
+        account = get_object_or_404(Account, social_login_id=social_login_id)
+
+        # 해당 Account에 대한 review 행 가져오기
+        review_rows = review.objects.filter(account=account)
+
+        # 가져온 review 행에서 market_id 추출
+        market_ids = [row.market_id.id for row in review_rows]
+
+        # 응답 데이터 구성
+        response_data = {
+            'market_ids': market_ids
+        }
+
+        return JsonResponse(response_data, safe=False)
+
+    elif request.method == 'POST':
+        # POST 요청 처리 코드 작성
+        # ...
+        print('post')
+        return JsonResponse({'message': 'POST 요청 처리 완료'})
+
+    else:
+        return JsonResponse({'message': '지원하지 않는 요청 방식입니다.'})
+from django.core import serializers
+"""def get_favorite_review(request):
+    social_login_id = request.GET.get('social_login_id')
+    market_id = request.GET.get('market_id')
+
+    account = get_object_or_404(Account, social_login_id=social_login_id)
+    market = get_object_or_404(Market_DB, id=market_id)
+
+    market_json = serializers.serialize('json', [market])
+    market_dict = json.loads(market_json)[0]['fields']
+
+    favorite_rows = Favorite.objects.filter(account=account)
+    review_rows = review.objects.filter(account=account)
+
+    market_ids = [1 if row.market_id.id else 0 for row in favorite_rows]
+    review_contents = [row.content for row in review_rows if row.content]
+
+    response_data = {
+        'market_info': market_dict,
+        'market_ids': market_ids,
+        'review_contents': review_contents
+    }
+
+    return JsonResponse(response_data, safe=False)"""
+
+from django.core import serializers
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from .models import Account, Market_DB, Favorite, review
+
+def get_favorite_review(request):
+    social_login_id = request.GET.get('social_login_id')
+    market_id = request.GET.get('market_id')
+
+    account = get_object_or_404(Account, social_login_id=social_login_id)
+    market = get_object_or_404(Market_DB, id=market_id)
+
+    market_json = serializers.serialize('json', [market])
+    market_dict = json.loads(market_json)[0]['fields']
+
+    favorite_rows = Favorite.objects.filter(account=account, market_id=market)
+    review_rows = review.objects.filter(account=account, market_id=market)
+
+    market_ids = 1 if favorite_rows.exists() else 0
+    review_contents = [row.content for row in review_rows if row.content]
+    review_grades = [row.grade for row in review_rows if row.grade]
+    response_data = {
+        'market_info': market_dict,
+        'market_ids': market_ids,
+        'review_contents': review_contents,
+        'review_grades': review_grades,
+    }
+
+    return JsonResponse(response_data)
+
+
+def delete_review(request):
+    if request.method == 'POST':
+        account_id = request.POST.get('account_id')
+        market_id = request.POST.get('market_id')
+
+        # 해당 account_id와 market_id에 해당하는 데이터 모두 삭제
+        review_rows = review.objects.filter(account_id=account_id, market_id=market_id)
+        review_rows.delete()
+
+        response_data = {
+            'message': 'Review 데이터 삭제 완료'
+        }
+
+        return JsonResponse(response_data)
+    else:
+        response_data = {
+            'message': '잘못된 요청입니다.'
+        }
+
+        return JsonResponse(response_data, status=400)
+
+def save_user_info(request):
+    account_id = request.POST.get('account_id')
+    nickname = request.POST.get('nickname')
+    print(account_id)
+    print(nickname)
+    profile_img = request.POST.get('profile_img')
+    print(profile_img)
+    # Get the Account object
+    
+
+    # Create or update the UserProfile object
+    account = get_object_or_404(Account, social_login_id =account_id)
+    userprofile = UserProfile(account_id=account.id,  nickname = nickname, profile_img = profile_img)
+    userprofile.save()
+
+    # Response data
+    response_data = {
+        'message': 'User profile information saved successfully.',
+        'account_id': account_id,
+        'nickname': nickname,
+        'profile_img': profile_img
+    }
+
+    return JsonResponse(response_data)
+
+def get_user_profile(request):
+    social_login_id = request.GET.get('social_login_id')
+
+    # Get the UserProfile object based on the social_login_id
+    user_profile = get_object_or_404(UserProfile, account__social_login_id=social_login_id)
+
+    # Get the profile information
+    nickname = user_profile.nickname
+    profile_img = user_profile.profile_img
+
+    # Response data
+    response_data = {
+        'message': 'User profile information retrieved successfully.',
+        'social_login_id': social_login_id,
+        'nickname': nickname,
+        'profile_img': profile_img
+    }
+
+    return JsonResponse(response_data)
+
+
+
+import json
+
+
+def get_category_statistics(request):
+    favorites = Favorite.objects.select_related('account', 'market_id')
+    category_counts = {
+        'male': {
+            '10': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '20': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '30': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '40': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '50': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '60': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '70': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0}
+        },
+        'female': {
+            '10': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '20': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '30': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '40': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '50': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '60': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0},
+            '70': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0}
+        }
+    }
+
+    for favorite in favorites:
+        gender = favorite.account.gender
+        age = favorite.account.age
+
+        if gender not in category_counts:
+            category_counts[gender] = {}
+
+        if age < '20':
+            age_group = '10'
+        elif age < '30':
+            age_group = '20'
+        elif age < '40':
+            age_group = '30'
+        elif age < '50':
+            age_group = '40'
+        elif age < '60':
+            age_group = '50'
+        elif age < '70':
+            age_group = '60'
+        else:
+            age_group = '70'
+
+        if age_group not in category_counts[gender]:
+            category_counts[gender][age_group] = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0}
+
+        category = favorite.market_id.category
+
+        if category not in category_counts[gender][age_group]:
+            category_counts[gender][age_group][category] = 0
+
+        category_counts[gender][age_group][category] += 1
+
+    context = {
+            'category_counts': category_counts,
+        }
+    json_context = json.dumps(context)
+
+    return render(request, 'chart.html', {'json_context': json_context})
+
+
+
+@api_view(['POST'])
+def deleteAccount(request):
+    social_login_id = request.data.get('social_login_id')
+    print(social_login_id)
+    try:
+        #account = Account.objects.get(social_login_id=social_login_id)
+        print(Account.objects.all())
+        account = get_object_or_404(Account, social_login_id = social_login_id)
+        print(account)
+        account.delete()
+        return JsonResponse({"message": "회원 탈퇴가 성공적으로 이루어졌습니다."})
+    except Account.DoesNotExist:
+        return JsonResponse({"message": "해당 ID를 가진 회원이 존재하지 않습니다."})
+
+def apple_login(request):
+    social_login_id = request.POST.get('social_login_id')
+    email = request.POST.get('email')
+    if  Account.objects.filter(social_login_id = social_login_id).exists():
+
+        #class_object = Account.objects.get(gender=kakao_response['kakao_account']['gender'], age=kakao_response['kakao_account']['age_range'], social_login_id=kakao_response['id'])
+
+            # yeouijus = Account.objects.get(yeouijus = account.yeouijus)
+        return JsonResponse({'message': '로그인 완료'})
+    # 저장되어 있지 않다면 회원가입
+    else:
+        account = Account.objects.create(
+            social_login_id=social_login_id,
+            email = email,
+            
+        )
+        
+        return JsonResponse({'message': '회원가입 완료'})

@@ -5,10 +5,12 @@ from rest_framework_api_key.models import APIKey
 from django.contrib import admin
 from .models import MyUser
 from django.contrib.auth.admin import UserAdmin
-from .models import Account, Market_DB
+from .models import Account, Market_DB, Favorite
 
+admin.site.index_title = "cawarock"
 
-from .models import Market_DB, Images, review, Account
+admin.site.site_header = "명지역길 관리자 페이지"
+from .models import Market_DB, Images, review, Account, Favorite
 
 class ImagesInline(admin.TabularInline):
     model = Images
@@ -16,24 +18,17 @@ class ImagesInline(admin.TabularInline):
 class reviewInline(admin.TabularInline):
     model = review
 
-
+class FavoriteInline(admin.TabularInline):
+    model = Favorite
+    fk_name = 'account'
 
 class MarketDBAdmin(admin.ModelAdmin):
     inlines = [ImagesInline, reviewInline]
-    readonly_fields = ['display_images']
-
-    def display_images(self, obj):
-        images = obj.images.all()
-        if images:
-            return ', '.join([str(image) for image in images])
-        else:
-            return 'No images'
-
-    display_images.short_description = 'Images'
+    search_fields = ['market_name']
 
 class accountAdmin(admin.ModelAdmin):
-    inlines = [reviewInline]
-    
+    inlines = [reviewInline,FavoriteInline]
+    search_fields = ['email'] 
 
 admin.site.register(Market_DB, MarketDBAdmin)
 
@@ -43,7 +38,9 @@ admin.site.register(Images)
 
 admin.site.register(review)
 
-admin.site.unregister(APIKey)
+admin.site.register(Favorite)
+
+#admin.site.unregister(APIKey)
 
 class MyUserAdmin(UserAdmin):
     model = MyUser
@@ -55,13 +52,13 @@ class MyUserAdmin(UserAdmin):
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
 
-admin.site.register(MyUser, MyUserAdmin)
+#admin.site.register(MyUser, MyUserAdmin)
 
 from django.contrib import admin
 from rest_framework_api_key.models import APIKey
 
-admin.site.register(APIKey)
+#admin.site.register(APIKey)
 
 from .models import CultureBank
 
-admin.site.register(CultureBank)
+#admin.site.register(CultureBank)

@@ -18,7 +18,7 @@ class ImagesSerializer(serializers.ModelSerializer):
 class reviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = review
-        fields = ("content", "grade", "market", "account")
+        fields = ("content", "grade", "market_id", "account")
 
 class accountSerializer(serializers.ModelSerializer):
     class Meta:
@@ -36,19 +36,19 @@ class Market_DBSerializer(serializers.ModelSerializer):
         return ImagesSerializer(images, many=True).data
     
     def get_reviews(self, Market_DB):
-        reviews = review.objects.filter(market=Market_DB.id)
+        reviews = review.objects.filter(market_id=Market_DB.id)
         return reviewSerializer(reviews, many=True).data
     
     def get_average_grade(self, Market_DB):
-        reviews = review.objects.filter(market=Market_DB.id)
+        reviews = review.objects.filter(market_id=Market_DB.id)
         average_grade = reviews.aggregate(Avg('grade'))['grade__avg']
         return round(average_grade, 2) if average_grade else None
 
     class Meta:
         model = Market_DB
-        fields = ('id', 'lot_number', 'market_name', 'cawarock', 'category', 'floor', 'open_check', 'keyword_common',
+        fields = ('id', 'lot_number','find_number', 'market_name', 'cawarock', 'category', 'floor', 'open_check', 'keyword_common',
                   'keyword_detail', 'address', 'phone', 'open_hours', 'item', 'explain', 'section', 'reviews',
-                  'average_grade', 'images') 
+                  'average_grade', 'images','latitude', 'longitude') 
 
 class MyUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(

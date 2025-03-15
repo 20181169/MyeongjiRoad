@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Category Statistics Chart</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h2>앱 사용자 성별, 나이대별 찜목록 카테고리 통계</h2>
+    <div style="display: flex;">
+        <div style="float:left; margin-left: 3%;" >
+            <canvas id="chart1" style="width: 800px; height: 600px;"></canvas>
+            <div class="male_btn">
+
+
+                <button type="button" id="male_10">남자10대</button>
+                <button type="button" id="male_20">남자20대</button>
+                <button type="button" id="male_30">남자30대</button>
+                <button type="button" id="male_40">남자40대</button>
+                <button type="button" id="male_50">남자50대</button>
+                <button type="button" id="male_60">남자60대</button>
+                <button type="button" id="male_70">남자70대</button>
+            </div>
+
+        </div>
+        <div style="float:left; margin-left: 3%;">
+            <canvas id="chart2" style="width: 800px; height: 600px;"></canvas>
+            <div class="female_btn">
+
+                <button type="button" id="female_10">여자10대</button>
+                <button type="button" id="female_20">여자20대</button>
+                <button type="button" id="female_30">여자30대</button>
+                <button type="button" id="female_40">여자40대</button>
+                <button type="button" id="female_50">여자50대</button>
+                <button type="button" id="female_60">여자60대</button>
+                <button type="button" id="female_70">여자70대</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 템플릿에서 통계 데이터 가져오기
+        var jsonContext = JSON.parse('{{ json_context|safe }}');
+
+        // male 차트 생성
+        var ctx1 = document.getElementById("chart1").getContext("2d");
+        var chart1 = new Chart(ctx1, {
+            type: 'bar', // 차트 유형 (막대 그래프)
+            data: {
+                labels: ['Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5', 'Category 6', 'Category 7', '분류 불가'], // 라벨 (카테고리)
+                datasets: [{
+                    label: 'Male', // 범례 레이블
+                    data: [], // 초기값은 빈 배열로 설정
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)' // 막대 색상
+                }]
+            },
+            options: {
+                responsive: true, // 반응형 크기 조정
+                scales: {
+                    x: {
+                        stacked: true // X 축에 막대를 쌓음
+                    },
+                    y: {
+                        stacked: true, // Y 축에 막대를 쌓음
+                        beginAtZero: true // Y 축 시작값을 0으로 설정
+                    }
+                }
+            }
+        });
+
+        // female 차트 생성
+        var ctx2 = document.getElementById("chart2").getContext("2d");
+        var chart2 = new Chart(ctx2, {
+            type: 'bar', // 차트 유형 (막대 그래프)
+            data: {
+                labels: ['Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5', 'Category 6', 'Category 7', '분류 불가'], // 라벨 (카테고리)
+                datasets: [{
+                    label: 'Female', // 범례 레이블
+                    data: [], // 초기값은 빈 배열로 설정
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)' // 막대 색상
+                }]
+            },
+            options: {
+                responsive: true, // 반응형 크기 조정
+                scales: {
+                    x: {
+                        stacked: true // X 축에 막대를 쌓음
+                    },
+                    y: {
+                        stacked: true, // Y 축에 막대를 쌓음
+                        beginAtZero: true // Y 축 시작값을 0으로 설정
+                    }
+                }
+            }
+        });
+
+        // 버튼 클릭 이벤트 핸들러
+        function handleButtonClick(event) {
+            var buttonId = event.target.id;
+            var genderGroup = buttonId.split('_')[0]; // 버튼 id에서 성별 그룹 추출
+            var ageGroup = buttonId.split('_')[1]; // 버튼 id에서 연령 그룹 추출
+
+            if (genderGroup === 'male') {
+                var data = Object.values(jsonContext.category_counts.male[ageGroup]);
+                chart1.data.datasets[0].data = data;
+                chart1.update();
+            } else if (genderGroup === 'female') {
+                var data = Object.values(jsonContext.category_counts.female[ageGroup]);
+                chart2.data.datasets[0].data = data;
+                chart2.update();
+            }
+        }
+
+        // 버튼에 클릭 이벤트 리스너 등록
+        var buttons = document.querySelectorAll('button');
+        buttons.forEach(function (button) {
+            button.addEventListener('click', handleButtonClick);
+        });
+    </script>
+
+
+<style>
+    .male_btn {
+        padding-top: 10%;
+        padding-left: 9%;
+    }
+    .female_btn{
+        padding-top: 10%;
+        padding-left: 9%;
+
+    }
+    .male_btn button{
+        width: 10%;
+        height: 30px;
+        border-radius: 10px;
+        background-color: aqua; 
+    }
+    .female_btn button{
+        width: 10%;
+        height: 30px;
+        border-radius: 10px;
+        background-color: palevioletred; 
+    }
+
+
+</style>
+</body>
+</html>

@@ -127,15 +127,20 @@ class Account(models.Model):
     point = models.IntegerField(null=True, default=None)
     picklist = models.CharField(max_length=1000,null=True, default=None)
     # yeouijus = models.CharField(max_length=20,null=True)
-
+    class Meta:
+        verbose_name_plural = '유저 정보'
 
     def __str__(self):
+        email = self.email or ''
+        gender = self.gender or ''
+        age = self.age or ''
         return self.email
 
 
 class Market_DB(models.Model):
 
     lot_number = models.CharField(max_length=70, null=True, blank=True) #지번
+    find_number = models.CharField(max_length=70, null=True) #길찾기 번호
     market_name = models.CharField(max_length=100, null=True, blank=True) #상호
     cawarock = models.CharField(max_length=100, null=True, blank=True) #와락 URL
     category = models.IntegerField(null=True, blank=True) # 카테고리
@@ -152,12 +157,14 @@ class Market_DB(models.Model):
     section = models.CharField(max_length=70, null=True, blank=True) # 섹션 넘버
     #review = models.JSONField(max_length=1000, null=True, blank=True) # 리뷰
     #grade = models.JSONField(max_length=1000, null=True, blank=True) # 평점
-    
+    latitude = models.CharField(max_length=70, null=True, blank=True) # 위도
+    longitude = models.CharField(max_length=70, null=True, blank=True) # 경도
 
     def __str__(self):
-        return self.market_name
+        return str(self.market_name)
 
-
+    class Meta:
+    	verbose_name_plural = '가게 정보'
 
 class Images(models.Model):
     
@@ -167,13 +174,14 @@ class Images(models.Model):
     def __str__(self):
         return str(self.market)
     
+    class Meta:
+    	verbose_name_plural = '가게 이미지'
 
-
-class review(models.Model):
-    market = models.ForeignKey(Market_DB, on_delete=models.CASCADE, related_name="review", null=True, db_column="market")
-    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="reviews", null=True, db_column="account")
-    content = models.TextField(help_text="reivew contents", blank=False, null=False) #리뷰글
-    grade = models.IntegerField(null=True, blank=True) # 평점
+#class review(models.Model):
+#    market = models.ForeignKey(Market_DB, on_delete=models.CASCADE, related_name="review", null=True, db_column="market")
+#    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="reviews", null=True, db_column="account")
+#    content = models.TextField(help_text="reivew contents", blank=False, null=False) #리뷰글
+#    grade = models.IntegerField(null=True, blank=True) # 평점
     
 
     
@@ -183,3 +191,46 @@ class Yeouijus(models.Model):
 
     def __str__(self):
         return self.yeouijus 
+
+
+class Favorite(models.Model):
+    account = models.ForeignKey(Account, on_delete=models.CASCADE,related_name="is_favorite")
+    market_id = models.ForeignKey(Market_DB, on_delete=models.CASCADE,related_name="is_favorite2")
+    is_favorite = models.BooleanField(default=False)
+    agerange = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True,related_name="is_favorite3")
+    gender = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True,related_name="is_favorite4")
+
+    #def __str__(self):
+        #return str(self.account)
+    def __str__(self):
+    # 필드들의 값을 확인
+        #account_value = str(self.account)
+        #market_id_value = str(self.market_id)
+        #is_favorite_value = str(self.is_favorite)
+        #agerange_value = str(self.agerange)
+        #gender_value = str(self.gender)
+
+    # 필드들의 값을 조합하여 문자열로 반환
+        return str(self.account)
+    class Meta:
+    	verbose_name_plural = '찜목록'
+
+class review(models.Model):
+    account = models.ForeignKey(Account, on_delete=models.CASCADE,null=True, blank=True,related_name="is_favorite5")
+    market_id = models.ForeignKey(Market_DB, on_delete=models.CASCADE,null=True, blank=True,related_name="is_favorite6")
+    content = models.CharField(max_length=2000, null=True, blank=True) # 설명
+    grade = models.IntegerField(null=True, blank=True) # 평점
+
+    def __str__(self):
+        return str(self.account)
+
+    class Meta:
+    	verbose_name_plural = '리뷰'
+
+class UserProfile(models.Model):
+    account = models.OneToOneField(Account, on_delete=models.CASCADE, primary_key=True)
+    profile_img = models.IntegerField(null=True, default=None)
+    nickname = models.CharField(max_length=1000, null=True, default=None)
+
+    def __str__(self):
+        return self.account.email
