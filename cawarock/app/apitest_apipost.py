@@ -3,8 +3,8 @@ import requests
 url = 'http://localhost:8000/hongbo/generate_key/'
 # 요청에 필요한 데이터
 data = {
-    'userid': 'king8875',
-    'password': 'King8875!!'
+    'userid': '',
+    'password': ''
 }
 
 # POST 요청 보내기

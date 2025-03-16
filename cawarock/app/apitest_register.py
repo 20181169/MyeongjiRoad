@@ -4,10 +4,10 @@ url = "http://localhost:8000/hongbo/register/"
 
 # 회원가입에 필요한 데이터를 딕셔너리 형태로 정의합니다.
 data = {
-    "userid" : "king8875",
-    "username" : "서경환",
-    "password": "King8875!!",
-    "email": "king8875@naver.com"
+    "userid" : "",
+    "username" : "",
+    "password": "",
+    "email": ""
 }
 
 # POST 요청을 보냅니다.
